@@ -393,7 +393,7 @@ Resources:
           - DomainName: !GetAtt objectStore6655B3F.DomainName
             Id: StackeryCDN
             S3OriginConfig:
-              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${cdn501AB1EDOriginAccessIdentity}
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${cdnOriginAccessIdentity}
     Metadata:
       StackeryName: cdn
 Parameters:

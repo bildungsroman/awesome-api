@@ -130,27 +130,6 @@ Resources:
       TableName: !Sub ${AWS::StackName}-table73E4770B
     Metadata:
       StackeryName: UsersTable
-  cdn501AB1ED:
-    Type: AWS::CloudFront::Distribution
-    Properties:
-      DistributionConfig:
-        DefaultCacheBehavior:
-          Compress: true
-          ForwardedValues:
-            Cookies:
-              Forward: none
-            QueryString: false
-          TargetOriginId: StackeryCDN
-          ViewerProtocolPolicy: redirect-to-https
-        Enabled: true
-        PriceClass: PriceClass_100
-        Origins:
-          - DomainName: !GetAtt objectStore6655B3F.DomainName
-            Id: StackeryCDN
-            S3OriginConfig:
-              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${cdn501AB1EDOriginAccessIdentity}
-    Metadata:
-      StackeryName: cdn
   objectStore6655B3F:
     Type: AWS::S3::Bucket
     Properties:
@@ -396,6 +375,27 @@ Resources:
             Resource: !Sub
               - ${BucketArn}/*
               - BucketArn: !GetAtt objectStore6655B3F.Arn
+  cdn:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        DefaultCacheBehavior:
+          Compress: true
+          ForwardedValues:
+            Cookies:
+              Forward: none
+            QueryString: false
+          TargetOriginId: StackeryCDN
+          ViewerProtocolPolicy: redirect-to-https
+        Enabled: true
+        PriceClass: PriceClass_100
+        Origins:
+          - DomainName: !GetAtt objectStore6655B3F.DomainName
+            Id: StackeryCDN
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${cdn501AB1EDOriginAccessIdentity}
+    Metadata:
+      StackeryName: cdn
 Parameters:
   StackeryStackTagName:
     Type: String

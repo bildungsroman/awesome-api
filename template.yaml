@@ -1,408 +1,208 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
-Description: Stackery Serverless API Example Stack
 Resources:
-  function61D00F31:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub ${AWS::StackName}-function61D00F31
-      Description: !Sub
-        - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Function ${ResourceName}
-        - ResourceName: getWelcomePage
-      CodeUri: src/getWelcomePage
-      Handler: index.handler
-      Runtime: nodejs8.10
-      MemorySize: 3008
-      Timeout: 30
-      Tracing: Active
-      Policies:
-        - AWSXrayWriteOnlyAccess
-        - DynamoDBCrudPolicy:
-            TableName: !Ref table73E4770B
-      Events:
-        apiFE76C470:
-          Type: Api
-          Properties:
-            Path: /
-            Method: GET
-            RestApiId: !Ref apiFE76C470
-      Environment:
-        Variables:
-          TABLE_NAME: !Ref table73E4770B
-          TABLE_ARN: !GetAtt table73E4770B.Arn
-    Metadata:
-      StackeryName: getWelcomePage
-  apiFE76C470:
-    Type: AWS::Serverless::Api
+  Graphql:
+    Type: AWS::AppSync::GraphQLApi
     Properties:
       Name: !Sub
-        - ${ResourceName} From Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName}
-        - ResourceName: Api
-      StageName: !Ref StackeryEnvironmentAPIGatewayStageName
-      DefinitionBody:
-        swagger: '2.0'
-        info: {}
-        paths:
-          /:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${function61D00F31.Arn}/invocations
-              responses: {}
-          /users:
-            post:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${functionA43B4F16.Arn}/invocations
-              responses: {}
-          /users/{id}:
-            put:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${functionA43B4F16.Arn}/invocations
-              responses: {}
-      EndpointConfiguration: REGIONAL
-    Metadata:
-      StackeryName: Api
-  functionA43B4F16:
+        - ${ResourceName} From Stack ${StackTagName} Environment ${EnvironmentTagName}
+        - ResourceName: Graphql
+      AuthenticationType: API_KEY
+      LogConfig:
+        FieldLogLevel: ERROR
+        CloudWatchLogsRoleArn: !GetAtt GraphqlLogsRole.Arn
+  GraphqlSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId: !GetAtt Graphql.ApiId
+      DefinitionS3Location: Graphql/schema.graphql
+  GraphqlLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: appsync.amazonaws.com
+          Action: sts:AssumeRole
+      RoleName: !Sub ${AWS::StackName}-Graphql-logs
+      Policies:
+        - PolicyName: Log
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/appsync/apis/*
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/appsync/apis/*:log-stream:*
+  GraphqlItemidResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      TypeName: Item
+      DataSourceName: !GetAtt GraphqlToFunction3DataSource.Name
+      RequestMappingTemplateS3Location: Graphql/Item-id-request.vm
+      ResponseMappingTemplateS3Location: Graphql/Item-id-response.vm
+      ApiId: !GetAtt Graphql.ApiId
+      FieldName: id
+    DependsOn: GraphqlSchema
+  GraphqlItemoptionsResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      TypeName: Item
+      DataSourceName: !GetAtt GraphqlToFunctionDataSource.Name
+      RequestMappingTemplateS3Location: Graphql/Item-options-request.vm
+      ResponseMappingTemplateS3Location: Graphql/Item-options-response.vm
+      ApiId: !GetAtt Graphql.ApiId
+      FieldName: options
+    DependsOn: GraphqlSchema
+  GraphqlUserFormnextTokenResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      TypeName: UserForm
+      DataSourceName: !GetAtt GraphqlToFunction2DataSource.Name
+      RequestMappingTemplateS3Location: Graphql/UserForm-nextToken-request.vm
+      ResponseMappingTemplateS3Location: Graphql/UserForm-nextToken-response.vm
+      ApiId: !GetAtt Graphql.ApiId
+      FieldName: nextToken
+    DependsOn: GraphqlSchema
+  Function:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ${AWS::StackName}-functionA43B4F16
+      FunctionName: !Sub ${AWS::StackName}-Function
       Description: !Sub
-        - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Function ${ResourceName}
-        - ResourceName: createOrUpdateUser
-      CodeUri: src/functionA43B4F16
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: Function
+      CodeUri: src/Function
       Handler: index.handler
-      Runtime: nodejs8.10
+      Runtime: nodejs10.x
       MemorySize: 3008
       Timeout: 30
       Tracing: Active
       Policies:
         - AWSXrayWriteOnlyAccess
-        - DynamoDBCrudPolicy:
-            TableName: !Ref table73E4770B
-        - AWSSecretsManagerGetSecretValuePolicy:
-            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${StackeryEnvironmentTagName}/*
-        - AWSLambdaENIManagementAccess
-      Events:
-        apiFE76C470PUTusersid:
-          Type: Api
-          Properties:
-            Path: /users/{id}
-            Method: PUT
-            RestApiId: !Ref apiFE76C470
-        apiFE76C470POSTusers:
-          Type: Api
-          Properties:
-            Path: /users
-            Method: POST
-            RestApiId: !Ref apiFE76C470
-      Environment:
-        Variables:
-          TABLE_NAME: !Ref table73E4770B
-          TABLE_ARN: !GetAtt table73E4770B.Arn
-          SECRETS_NAMESPACE: !Sub /${StackeryEnvironmentTagName}/
-      VpcConfig:
-        SecurityGroupIds:
-          - !GetAtt virtualNetwork51A261CE.DefaultSecurityGroup
-        SubnetIds:
-          - !Ref virtualNetwork51A261CEPrivateSubnet1
-          - !Ref virtualNetwork51A261CEPrivateSubnet2
-    Metadata:
-      StackeryName: createOrUpdateUser
-  table73E4770B:
-    Type: AWS::DynamoDB::Table
+  Function2:
+    Type: AWS::Serverless::Function
     Properties:
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-      ProvisionedThroughput:
-        ReadCapacityUnits: 5
-        WriteCapacityUnits: 5
-      StreamSpecification:
-        StreamViewType: NEW_AND_OLD_IMAGES
-      TableName: !Sub ${AWS::StackName}-table73E4770B
-    Metadata:
-      StackeryName: UsersTable
-  objectStore6655B3F:
-    Type: AWS::S3::Bucket
+      FunctionName: !Sub ${AWS::StackName}-Function2
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: Function2
+      CodeUri: src/Function2
+      Handler: function.handler
+      Runtime: ruby2.5
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+  Function3:
+    Type: AWS::Serverless::Function
     Properties:
-      BucketName: !Sub ${AWS::StackName}-objectstore6655b3f
-    Metadata:
-      StackeryName: Frontend
-  virtualNetwork51A261CE:
-    Type: AWS::EC2::VPC
+      FunctionName: !Sub ${AWS::StackName}-Function3
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: Function3
+      CodeUri: src/Function3
+      Handler: index.handler
+      Runtime: nodejs10.x
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+  GraphqlToFunction2DataSource:
+    Type: AWS::AppSync::DataSource
     Properties:
-      CidrBlock: 10.0.0.0/16
-      Tags:
-        - Key: Name
-          Value: !Sub
-            - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Virtual Network ${ResourceName}
-            - ResourceName: VPC
-    Metadata:
-      StackeryName: VPC
-  virtualNetwork51A261CEPrivateSubnet1:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::Subnet
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt GraphqlToFunction2AccessRole.Arn
+      ApiId: !GetAtt Graphql.ApiId
+      Name: Function2
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt Function2.Arn
+  GraphqlToFunction2AccessRole:
+    Type: AWS::IAM::Role
     Properties:
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs ''
-      CidrBlock: !Select
-        - 0
-        - !Cidr
-          - 10.0.0.0/16
-          - 4
-          - 14
-      Tags:
-        - Key: Name
-          Value: !Sub
-            - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Virtual Network ${ResourceName} Private Subnet 1
-            - ResourceName: VPC
-      VpcId: !Ref virtualNetwork51A261CE
-  virtualNetwork51A261CEPrivateSubnet2:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::Subnet
-    Properties:
-      AvailabilityZone: !Select
-        - 1
-        - !GetAZs ''
-      CidrBlock: !Select
-        - 1
-        - !Cidr
-          - 10.0.0.0/16
-          - 4
-          - 14
-      Tags:
-        - Key: Name
-          Value: !Sub
-            - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Virtual Network ${ResourceName} Private Subnet 2
-            - ResourceName: VPC
-      VpcId: !Ref virtualNetwork51A261CE
-  virtualNetwork51A261CEPublicSubnet1:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::Subnet
-    Properties:
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs ''
-      CidrBlock: !Select
-        - 2
-        - !Cidr
-          - 10.0.0.0/16
-          - 4
-          - 14
-      MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Sub
-            - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Virtual Network ${ResourceName} Public Subnet 1
-            - ResourceName: VPC
-      VpcId: !Ref virtualNetwork51A261CE
-  virtualNetwork51A261CEPublicSubnet2:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::Subnet
-    Properties:
-      AvailabilityZone: !Select
-        - 1
-        - !GetAZs ''
-      CidrBlock: !Select
-        - 3
-        - !Cidr
-          - 10.0.0.0/16
-          - 4
-          - 14
-      MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Sub
-            - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Virtual Network ${ResourceName} Public Subnet 2
-            - ResourceName: VPC
-      VpcId: !Ref virtualNetwork51A261CE
-  virtualNetwork51A261CEPrivateSubnet1NatGatewayEIP:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-  virtualNetwork51A261CEPrivateSubnet1NatGateway:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt virtualNetwork51A261CEPrivateSubnet1NatGatewayEIP.AllocationId
-      SubnetId: !Ref virtualNetwork51A261CEPublicSubnet1
-  virtualNetwork51A261CEPrivateSubnet1RouteTable:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::RouteTable
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub
-            - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Virtual Network ${ResourceName} Private Subnet 1 Route Table
-            - ResourceName: VPC
-      VpcId: !Ref virtualNetwork51A261CE
-  virtualNetwork51A261CEPrivateSubnet1NatGatewayRoute:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref virtualNetwork51A261CEPrivateSubnet1NatGateway
-      RouteTableId: !Ref virtualNetwork51A261CEPrivateSubnet1RouteTable
-  virtualNetwork51A261CEPrivateSubnet1RouteTableAssociation:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref virtualNetwork51A261CEPrivateSubnet1RouteTable
-      SubnetId: !Ref virtualNetwork51A261CEPrivateSubnet1
-  virtualNetwork51A261CEPrivateSubnet2NatGatewayEIP:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-  virtualNetwork51A261CEPrivateSubnet2NatGateway:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt virtualNetwork51A261CEPrivateSubnet2NatGatewayEIP.AllocationId
-      SubnetId: !Ref virtualNetwork51A261CEPublicSubnet2
-  virtualNetwork51A261CEPrivateSubnet2RouteTable:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::RouteTable
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub
-            - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Virtual Network ${ResourceName} Private Subnet 2 Route Table
-            - ResourceName: VPC
-      VpcId: !Ref virtualNetwork51A261CE
-  virtualNetwork51A261CEPrivateSubnet2NatGatewayRoute:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref virtualNetwork51A261CEPrivateSubnet2NatGateway
-      RouteTableId: !Ref virtualNetwork51A261CEPrivateSubnet2RouteTable
-  virtualNetwork51A261CEPrivateSubnet2RouteTableAssociation:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref virtualNetwork51A261CEPrivateSubnet2RouteTable
-      SubnetId: !Ref virtualNetwork51A261CEPrivateSubnet2
-  virtualNetwork51A261CEPublicSubnetsInternetGateway:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub
-            - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Virtual Network ${ResourceName} Public Subnets Internet Gateway
-            - ResourceName: VPC
-  virtualNetwork51A261CEPublicSubnetsInternetGatewayAttachment:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      InternetGatewayId: !Ref virtualNetwork51A261CEPublicSubnetsInternetGateway
-      VpcId: !Ref virtualNetwork51A261CE
-  virtualNetwork51A261CEPublicSubnetsRouteTable:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::RouteTable
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub
-            - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Virtual Network ${ResourceName} Public Subnets Route Table
-            - ResourceName: VPC
-      VpcId: !Ref virtualNetwork51A261CE
-  virtualNetwork51A261CEPublicSubnetsInternetGatewayRoute:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref virtualNetwork51A261CEPublicSubnetsInternetGateway
-      RouteTableId: !Ref virtualNetwork51A261CEPublicSubnetsRouteTable
-  virtualNetwork51A261CEPublicSubnet1RouteTableAssociation:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref virtualNetwork51A261CEPublicSubnetsRouteTable
-      SubnetId: !Ref virtualNetwork51A261CEPublicSubnet1
-  virtualNetwork51A261CEPublicSubnet2RouteTableAssociation:
-    Metadata:
-      StackeryManaged: true
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref virtualNetwork51A261CEPublicSubnetsRouteTable
-      SubnetId: !Ref virtualNetwork51A261CEPublicSubnet2
-  cdnOriginAccessIdentity:
-    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
-    Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: Stackery
-  cdnBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref objectStore6655B3F
-      PolicyDocument:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
         Statement:
-          - Effect: Allow
-            Principal:
-              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${cdnOriginAccessIdentity}
-            Action: s3:GetObject
-            Resource: !Sub
-              - ${BucketArn}/*
-              - BucketArn: !GetAtt objectStore6655B3F.Arn
-  cdn:
-    Type: AWS::CloudFront::Distribution
+          Effect: Allow
+          Principal:
+            Service: appsync.amazonaws.com
+          Action: sts:AssumeRole
+      RoleName: !Sub ${AWS::StackName}-Graphql-to-Function2
+      Policies:
+        - PolicyName: Access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt Function2.Arn
+  GraphqlToFunctionDataSource:
+    Type: AWS::AppSync::DataSource
     Properties:
-      DistributionConfig:
-        DefaultCacheBehavior:
-          Compress: true
-          ForwardedValues:
-            Cookies:
-              Forward: none
-            QueryString: false
-          TargetOriginId: StackeryCDN
-          ViewerProtocolPolicy: redirect-to-https
-        Enabled: true
-        PriceClass: PriceClass_100
-        Origins:
-          - DomainName: !GetAtt objectStore6655B3F.DomainName
-            Id: StackeryCDN
-            S3OriginConfig:
-              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${cdnOriginAccessIdentity}
-    Metadata:
-      StackeryName: cdn
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt GraphqlToFunctionAccessRole.Arn
+      ApiId: !GetAtt Graphql.ApiId
+      Name: Function
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt Function.Arn
+  GraphqlToFunctionAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: appsync.amazonaws.com
+          Action: sts:AssumeRole
+      RoleName: !Sub ${AWS::StackName}-Graphql-to-Function
+      Policies:
+        - PolicyName: Access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt Function.Arn
+  GraphqlToFunction3DataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt GraphqlToFunction3AccessRole.Arn
+      ApiId: !GetAtt Graphql.ApiId
+      Name: Function3
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt Function3.Arn
+  GraphqlToFunction3AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: appsync.amazonaws.com
+          Action: sts:AssumeRole
+      RoleName: !Sub ${AWS::StackName}-Graphql-to-Function3
+      Policies:
+        - PolicyName: Access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt Function3.Arn
 Parameters:
-  StackeryStackTagName:
+  StackTagName:
     Type: String
     Description: Stack Name (injected by Stackery at deployment time)
-  StackeryEnvironmentTagName:
+  EnvironmentTagName:
     Type: String
     Description: Environment Name (injected by Stackery at deployment time)
-  StackeryEnvironmentAPIGatewayStageName:
-    Type: String
-    Description: Environment name used for API Gateway Stage names (injected by Stackery at deployment time)
